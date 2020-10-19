@@ -1,59 +1,50 @@
 #!/usr/bin/python3
 
 import paramiko, sys
-ERROR = "Usage mode:\n python cowrie_detect.py'ip'"
-CREDENTIALS = {"root":"123456", "root":"root", "phil":"fout", "phil":"phil"}
-USERS = ["root"]
-PASSWORDS = ["123"]
-COUNT = 0
-COWRIE_PROVE = "RX bytes:102191499830 (102.1 GB)  TX bytes:68687923025 (68.6 GB)"
-HOSTNAME = "localhost"
-TEST_COWRIE = 0
-TEST_DIONAEA = 0
-LISTA = []
+import argparse
+USER = "root"
+PASSWORD = "123456"
+score = 0
+hostname = "localhost"
 
-def entrypoint():
+def connect_cowrie(host, usr, pwd):
 	try:
-		if "--help" in sys.argv:
-			print(ERROR)
-			print("entre")
-		#elif "--ssh" in sys.argv:
-			#LISTA.append("cowrie")
-			#print "HIIIII"
-		#elif "-smb" in sys.argv:
-			#TEST_DIONAEA = 1
-		else:
-			pass
-		lon= len(sys.argv)
-		#print lon
-		HOSTNAME = sys.argv[lon-1]
-		print("hostname:" + HOSTNAME)
-	except:
-		print(ERROR)
-
-
-def connect_cowrie():
-    s = paramiko.SSHClient()
-    s.load_system_host_keys()
-    for user in USERS:
-    	for pwd in PASSWORDS:
-    		s.connect(HOSTNAME, 2222, user, pwd)
-    		command = "ifconfig"
-    		(stdin, stdout, stderr) = s.exec_command(command)
-    		for line in stdout.readlines():
-	    		if COWRIE_PROVE in line:
-    				COUNT = COUNT +100
-    		s.close()
+		print("Connecting to {0} with username \"{1}\" and password \"{2}\"".format(host, usr, pwd))
+		s = paramiko.SSHClient()
+		s.load_system_host_keys()
+		s.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+		s.connect(host, port=2222, username=usr, password=pwd)
+		print("Executing commands...")
+		(stdin, stdout, stderr) = s.exec_command("cat /etc/passwd")
+		for line in stdout.readlines():
+			if "phil" in line:
+				print("[+5] User \"phil\" exists!")
+				score += 5
+		(stdin, stdout, stderr) = s.exec_command("cat /etc/shadow")
+		for line in stdout.readlines():
+			if "phil" in line:
+				print("[+5] User \"phil\" exists!")
+				score += 5
+		s.close()
+	except paramiko.ssh_exception.NoValidConnectionsError:
+		print("Error: Could not connect to host!")
+		sys.exit()
+	except paramiko.ssh_exception.SSHException:
+		print("Error: SSH connection error!")
 
 def evaluation():
-	if COUNT > 90:
-		print("Cowrie detected in "+ HOSTNAME)
+	print("Total Cowrie Score: " + str(score))
 
 if __name__ == "__main__":
-	entrypoint()
-	connect_cowrie()
-	print(LISTA)
-	if "cowrie" in LISTA:
-		print("HAA")
-		connect_cowrie()
-		evaluation()
+	parser = argparse.ArgumentParser(usage='{0} [host] [options]'.format(sys.argv[0]))
+	parser.add_argument("host", action='store', help="Host to connect to.")
+	parser.add_argument("-u", "--username", action='store', default=USER, help="Connect using a specific username. Default is {0}.".format(USER))
+	parser.add_argument("-p", "--password", action='store', default=PASSWORD, help="Connect using a specific password. Default is \"{0}\".".format(PASSWORD))
+	args = parser.parse_args()
+	lenargs = len(vars(args))
+
+	# if lenargs < 3:
+	# 	parser.print_help()
+	# 	sys.exit()
+	connect_cowrie(args.host, args.username, args.password)
+	evaluation()
