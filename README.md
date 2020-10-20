@@ -4,6 +4,13 @@
 This script attempts to connect to an SSH host and test many commands and files to compare to a default Cowrie installation.
 For everything it finds, a score is assigned. The maximum score is 100%.
 
+## Score Grading
+
+```
+    0% - - - - - - - - - - - - - - - - - - - 100%
+Not Cowrie                             Definitely Cowrie
+```
+
 ## Requirements
 
 * Python 3
