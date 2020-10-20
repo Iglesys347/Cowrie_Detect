@@ -136,43 +136,98 @@ def connect_cowrie(host, prt, usr, psw):
 			if "HWaddr" in line:
 				print(line)
 				for oui in ouiarray:
-					if oui in line:
+					if re.search(oui, line):
 						ouiexists == True
 						break
 				break
 		if not ouiexists:
-			print("[+15] ifconfig shows an invalid MAC address!")
-			score += 15
+			print("[+8] ifconfig shows an invalid MAC address!")
+			score += 8
 		# version
 		versioncheck = "Linux version 3.2.0-4-amd64 (debian-kernel@lists.debian.org) (gcc version 4.6.3 (Debian 4.6.3-14) ) #1 SMP Debian 3.2.68-1+deb7u1"
 		(stdin, stdout, stderr) = s.execute("cat /proc/version")
-		if versioncheck in stdout:
-			print("[+5] Same OS found in version file!")
-			score += 5
+		for line in stdout:
+			if versioncheck in line:
+				print("[+4] Same OS found in version file!")
+				score += 4
 		unamecheck = "3.2.0-4-amd64 #1 SMP Debian 3.2.68-1+deb7u1 x86_64 GNU/Linux"
 		(stdin, stdout, stderr) = s.execute("cat /proc/version")
-		if unamecheck in stdout:
-			print("[+5] uname command shows same version!")
-			score += 5
+		for line in stdout:
+			if unamecheck in line:
+				print("[+4] uname command shows same version!")
+				score += 4
 		# meminfo
+		memcheck = "MemTotal:        4054744 kB"
+		(stdin, stdout, stderr) = s.execute("cat /proc/meminfo")
+		for line in stdout:
+			if unamecheck in line:
+				print("[+4] Similar memory information!")
+				score += 4
 		# mounts
+		mountscheck = """  
+rootfs / rootfs rw 0 0
+sysfs /sys sysfs rw,nosuid,nodev,noexec,relatime 0 0
+proc /proc proc rw,relatime 0 0
+udev /dev devtmpfs rw,relatime,size=10240k,nr_inodes=997843,mode=755 0 0
+devpts /dev/pts devpts rw,nosuid,noexec,relatime,gid=5,mode=620,ptmxmode=000 0 0
+tmpfs /run tmpfs rw,nosuid,relatime,size=1613336k,mode=755 0 0
+/dev/dm-0 / ext3 rw,relatime,errors=remount-ro,data=ordered 0 0
+tmpfs /dev/shm tmpfs rw,nosuid,nodev 0 0
+tmpfs /run/lock tmpfs rw,nosuid,nodev,noexec,relatime,size=5120k 0 0
+systemd-1 /proc/sys/fs/binfmt_misc autofs rw,relatime,fd=22,pgrp=1,timeout=300,minproto=5,maxproto=5,direct 0 0
+fusectl /sys/fs/fuse/connections fusectl rw,relatime 0 0
+/dev/sda1 /boot ext2 rw,relatime 0 0
+/dev/mapper/home /home ext3 rw,relatime,data=ordered 0 0
+binfmt_misc /proc/sys/fs/binfmt_misc binfmt_misc rw,relatime 0 0"""
+		(stdin, stdout, stderr) = s.execute("cat /proc/mounts")
+		for line in stdout:
+			if mountscheck in line:
+				print("[+4] Exact match with mounts!")
+				score += 4
 		# cpuinfo
+		cpucheck = "Intel(R) Core(TM)2 Duo CPU     E8200  @ 2.66GHz"
+		(stdin, stdout, stderr) = s.execute("cat /proc/cpuinfo")
+		for line in stdout:
+			if cpucheck in line:
+				print("[+8] Same CPU Information found!")
+				score += 8
 		# group
+		(stdin, stdout, stderr) = s.execute("cat /etc/group")
+		for line in stdout:
+			if "phil" in line:
+				print("[+16] User \"phil\" exists in group file!")
+				score += 16
 		# passwd
 		(stdin, stdout, stderr) = s.execute("cat /etc/passwd")
 		for line in stdout:
 			if "phil" in line:
-				print("[+25] User \"phil\" exists in passwd file!")
-				score += 25
+				print("[+16] User \"phil\" exists in passwd file!")
+				score += 16
 		# shadow
 		(stdin, stdout, stderr) = s.execute("cat /etc/shadow")
 		for line in stdout:
 			if "phil" in line:
-				print("[+25] User \"phil\" exists in shadow file!")
-				score += 25
+				print("[+16] User \"phil\" exists in shadow file!")
+				score += 16
 		# hosts
+		(stdin, stdout, stderr) = s.execute("cat /etc/hosts")
+		for line in stdout:
+			if "nas3" in line:
+				print("[+8] Common host \"nas3\" exists in hosts file!")
+				score += 8
 		# hostname
+		(stdin, stdout, stderr) = s.execute("cat /etc/hostname")
+		for line in stdout:
+			if "svr04" in line:
+				print("[+8] Common hostname \"svr04\" exists!")
+				score += 8
 		# issue
+		issuecheck = "Debian GNU/Linux 7 \\n \\l"
+		(stdin, stdout, stderr) = s.execute("cat /etc/hostname")
+		for line in stdout:
+			if issuecheck in line:
+				print("[+4] Common OS issue exists!")
+				score += 4
 		del s
 	except paramiko.ssh_exception.NoValidConnectionsError:
 		print("Error: Could not connect to host!")
