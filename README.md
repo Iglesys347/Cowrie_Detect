@@ -15,7 +15,7 @@ For everything it finds, a score is assigned. The maximum score is 100%.
 ./cowrie_detect.py <host> [options]
 
 Required:
-  host: IP Address or domain of host
+  host                        IP Address or domain of host to connect to
 
 Options:
   -u, --username: USERNAME    Connect with a specific username
