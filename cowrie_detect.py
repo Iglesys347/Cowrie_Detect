@@ -2,49 +2,214 @@
 
 import paramiko, sys
 import argparse
+import re
+import os
+import urllib.request
+import string
 USER = "root"
-PASSWORD = "123456"
+PASSWORD = "password"
 score = 0
-hostname = "localhost"
+PORT = 2222
 
-def connect_cowrie(host, usr, pwd):
+##########################################################
+# ShellHandler class made by misha at Stack Overflow (https://stackoverflow.com/questions/35821184/implement-an-interactive-shell-over-ssh-in-python-using-paramiko)
+class ShellHandler:
+
+	def __init__(self, host, prt, user, psw):
+		self.ssh = paramiko.SSHClient()
+		self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+		self.ssh.connect(host, username=user, password=psw, port=prt)
+
+		channel = self.ssh.invoke_shell()
+		self.stdin = channel.makefile('wb')
+		self.stdout = channel.makefile('r')
+
+	def __del__(self):
+		self.ssh.close()
+
+	def execute(self, cmd):
+		"""
+
+		:param cmd: the command to be executed on the remote computer
+		:examples:  execute('ls')
+					execute('finger')
+					execute('cd folder_name')
+		"""
+		cmd = cmd.strip('\n')
+		self.stdin.write(cmd + '\n')
+		finish = "end of stdOUT buffer. finished with exit status"
+		echo_cmd = 'echo {} $?'.format(finish)
+		self.stdin.write(echo_cmd + '\n')
+		shin = self.stdin
+		self.stdin.flush()
+
+		shout = []
+		sherr = []
+		exit_status = 0
+		for line in self.stdout:
+			line = re.compile(r'(\x9B|\x1B\[)[0-?]*[ -/]*[@-~]').sub('', line).replace('\b', '').replace('\r', '')
+			if line.startswith(cmd) or str(line).startswith(echo_cmd):
+				print("start")
+				# up for now filled with shell junk from stdin
+				shout = []
+			elif str(line).startswith(finish):
+				# our finish command ends with the exit status
+				exit_status = int(str(line).rsplit(maxsplit=1)[1])
+				if exit_status:
+					# stderr is combined with stdout.
+					# thus, swap sherr with shout in a case of failure.
+					sherr = shout
+					shout = []
+				break
+			else:
+				# get rid of 'coloring and formatting' special characters
+				shout.append(re.compile(r'(\x9B|\x1B\[)[0-?]*[ -/]*[@-~]').sub('', line).
+							 replace('\b', '').replace('\r', ''))
+
+		# first and last lines of shout/sherr contain a prompt
+		if shout and echo_cmd in shout[-1]:
+			shout.pop()
+		if shout and cmd in shout[0]:
+			shout.pop(0)
+		if sherr and echo_cmd in sherr[-1]:
+			sherr.pop()
+		if sherr and cmd in sherr[0]:
+			sherr.pop(0)
+
+		return shin, shout, sherr
+##########################################################
+
+def getoui():
+	print("Retrieving a sanitized OUI file from \"https://linuxnet.ca/\".")
+	print("This may take a minute.")
 	try:
-		print("Connecting to {0} with username \"{1}\" and password \"{2}\"".format(host, usr, pwd))
-		s = paramiko.SSHClient()
-		s.load_system_host_keys()
-		s.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-		s.connect(host, port=2222, username=usr, password=pwd)
+		urllib.request.urlretrieve("https://linuxnet.ca/ieee/oui.txt", filename="oui.txt")
+		return 0
+	except Exception:
+		print("Could not retrieve the OUI file. Skipping MAC address testing.")
+		return 1
+
+def generate_oui():
+	if os.path.isfile("oui.txt"): # Check if the oui.txt file exists in the same directory as the script.
+		parsebool = ""
+		print("An oui file has been found. Use this file to test or retrieve a new one?")
+		while parsebool != 'p' and parsebool != 'r':
+			parsebool = input("Input (p/r):")
+			parsebool.lower()
+		if parsebool == 'r':
+			if getoui() == 1:
+				return 1
+	else:
+		if getoui() == 1:
+			return 1
+	ouiarray = []
+	ouifile = open("oui.txt", 'r') # Open the file for reading.
+	ouifile.seek(0)
+	while (True):
+		line = ouifile.readline() # Read each line until the end of file.
+		if not line:
+			break
+		if line == "\n": # Ignore newlines.
+			continue
+		else:
+			# Split the line by tabs and spaces and select the first part of the line.
+			line = line.split('\t')
+			line = line[0].split(' ')
+			line = line[0]
+			# Use Regex matching to determine it is the format of a MAC address.
+			pattern = re.compile("[0-9A-Fa-f]{2}\-[0-9A-Fa-f]{2}\-[0-9A-Fa-f]{2}")
+			if pattern.match(line):
+				ouiarray.append(line.replace('-',':')) # Replace the hyphens with colons.
+	return ouiarray
+
+def connect_cowrie(host, prt, usr, psw):
+	global score
+	try:
+		print("Connecting to {0} with username \"{1}\" and password \"{2}\"".format(host, usr, psw))
+		s = ShellHandler(host, prt, usr, psw)
 		print("Executing commands...")
-		(stdin, stdout, stderr) = s.exec_command("cat /etc/passwd")
-		for line in stdout.readlines():
+		# ifconfig
+		ouiarray = generate_oui()
+		ouiexists = False
+		(stdin, stdout, stderr) = s.execute("ifconfig")
+		for line in stdout:
+			if "HWaddr" in line:
+				print(line)
+				for oui in ouiarray:
+					if oui in line:
+						ouiexists == True
+						break
+				break
+		if not ouiexists:
+			print("[+15] ifconfig shows an invalid MAC address!")
+			score += 15
+		# version
+		versioncheck = "Linux version 3.2.0-4-amd64 (debian-kernel@lists.debian.org) (gcc version 4.6.3 (Debian 4.6.3-14) ) #1 SMP Debian 3.2.68-1+deb7u1"
+		(stdin, stdout, stderr) = s.execute("cat /proc/version")
+		if versioncheck in stdout:
+			print("[+5] Same OS found in version file!")
+			score += 5
+		unamecheck = "3.2.0-4-amd64 #1 SMP Debian 3.2.68-1+deb7u1 x86_64 GNU/Linux"
+		(stdin, stdout, stderr) = s.execute("cat /proc/version")
+		if unamecheck in stdout:
+			print("[+5] uname command shows same version!")
+			score += 5
+		# meminfo
+		# mounts
+		# cpuinfo
+		# group
+		# passwd
+		(stdin, stdout, stderr) = s.execute("cat /etc/passwd")
+		for line in stdout:
 			if "phil" in line:
-				print("[+5] User \"phil\" exists!")
-				score += 5
-		(stdin, stdout, stderr) = s.exec_command("cat /etc/shadow")
-		for line in stdout.readlines():
+				print("[+25] User \"phil\" exists in passwd file!")
+				score += 25
+		# shadow
+		(stdin, stdout, stderr) = s.execute("cat /etc/shadow")
+		for line in stdout:
 			if "phil" in line:
-				print("[+5] User \"phil\" exists!")
-				score += 5
-		s.close()
+				print("[+25] User \"phil\" exists in shadow file!")
+				score += 25
+		# hosts
+		# hostname
+		# issue
+		del s
 	except paramiko.ssh_exception.NoValidConnectionsError:
 		print("Error: Could not connect to host!")
 		sys.exit()
+	except paramiko.ssh_exception.AuthenticationException:
+		print("Error: Could not authenticate, incorrect username/password.")
 	except paramiko.ssh_exception.SSHException:
 		print("Error: SSH connection error!")
 
 def evaluation():
-	print("Total Cowrie Score: " + str(score))
+	print("Total Cowrie Score: " + str(score) + "%")
+	if score == 100:
+		print("Verdict: \033[1;31;40mA completely default Cowrie honeypot")
+	elif score > 90:
+		print("Verdict: \033[1;31;40mA Cowrie honeypot with slightly changed values")
+	elif score > 75:
+		print("Verdict: \033[1;31;40mA Cowrie honeypot with some changed values")
+	elif score > 50:
+		print("Verdict: \033[1;33;40mMost likely a Cowrie honeypot")
+	elif score > 25:
+		print("Verdict: \033[1;33;40mPossibly a Cowrie honeypot")
+	elif score > 0 :
+		print("Verdict: \033[1;32;40mHardly any evidence of a Cowrie honeypot")
+	elif score == 0:
+		print("Verdict: \033[1;32;40mIf this was a honeypot, I'd be fooled")
 
 if __name__ == "__main__":
-	parser = argparse.ArgumentParser(usage='{0} [host] [options]'.format(sys.argv[0]))
+	parser = argparse.ArgumentParser(usage='{0} <host> [options]'.format(sys.argv[0]))
 	parser.add_argument("host", action='store', help="Host to connect to.")
 	parser.add_argument("-u", "--username", action='store', default=USER, help="Connect using a specific username. Default is {0}.".format(USER))
 	parser.add_argument("-p", "--password", action='store', default=PASSWORD, help="Connect using a specific password. Default is \"{0}\".".format(PASSWORD))
+	parser.add_argument("--port", action='store', default=PORT, help="Connect using a specific port. Default is \"{0}\".".format(PORT))
 	args = parser.parse_args()
 	lenargs = len(vars(args))
 
 	# if lenargs < 3:
 	# 	parser.print_help()
 	# 	sys.exit()
-	connect_cowrie(args.host, args.username, args.password)
+	connect_cowrie(args.host, args.port, args.username, args.password)
 	evaluation()
