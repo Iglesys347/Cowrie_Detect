@@ -9,6 +9,7 @@ import string
 USER = "root"
 PASSWORD = "password"
 score = 0
+maxscore = 0
 PORT = 2222
 
 ##########################################################
@@ -121,52 +122,98 @@ def generate_oui():
 				ouiarray.append(line.replace('-',':')) # Replace the hyphens with colons.
 	return ouiarray
 
-def connect_cowrie(host, prt, usr, psw):
-	global score
-	try:
-		print("Connecting to {0} with username \"{1}\" and password \"{2}\"".format(host, usr, psw))
-		s = ShellHandler(host, prt, usr, psw)
-		print("Executing commands...")
-		# ifconfig
-		ouiarray = generate_oui()
-		ouiexists = False
-		(stdin, stdout, stderr) = s.execute("ifconfig")
-		for line in stdout:
-			if "HWaddr" in line:
-				for oui in ouiarray:
-					if re.search(oui, line):
-						ouiexists = True
-						break
-				break
+def ifconfigarp(s, increment):
+	global maxscore
+	maxscore += increment * 2
+	score = 0
+	ouiarray = generate_oui()
+	ouiexists = False
+	(stdin, stdout, stderr) = s.execute("ifconfig")
+	for line in stdout:
+		if "HWaddr" in line:
+			for oui in ouiarray:
+				if re.search(oui, line):
+					ouiexists = True
+					break
+			break
+	if ouiexists == False:
+		print("[+{0}] ifconfig shows an invalid MAC address!".format(increment))
+		score += increment
+	ouiexists = False
+	(stdin, stdout, stderr) = s.execute("cat /proc/net/arp")
+	pattern = "[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]"
+	arpscore = 0
+	macs = re.findall(pattern, line)
+	for line in stdout:
+		if re.search("No such file or directory", line):
+			print("[+{0}] arp file does not exist!".format(increment))
+			score += increment
+			break
+		for m in macs:
+			for oui in ouiarray:
+				if oui in m:
+					ouiexists = True
+					break
 		if ouiexists == False:
-			print("[+8] ifconfig shows an invalid MAC address!")
-			score += 8
-		# version
-		versioncheck = "Linux version 3.2.0-4-amd64 (debian-kernel@lists.debian.org) (gcc version 4.6.3 (Debian 4.6.3-14) ) #1 SMP Debian 3.2.68-1+deb7u1"
-		(stdin, stdout, stderr) = s.execute("cat /proc/version")
-		for line in stdout:
-			if versioncheck in line:
-				print("[+4] Same OS found in version file!")
-				score += 4
-				break
-		# uname
-		unamecheck = "3.2.0-4-amd64 #1 SMP Debian 3.2.68-1+deb7u1 x86_64 GNU/Linux"
-		(stdin, stdout, stderr) = s.execute("uname -a")
-		for line in stdout:
-			if unamecheck in line:
-				print("[+4] uname command shows same version!")
-				score += 4
-				break
-		# meminfo
-		memcheck = "MemTotal:        4054744 kB"
-		(stdin, stdout, stderr) = s.execute("cat /proc/meminfo")
-		for line in stdout:
-			if re.search(memcheck, line):
-				print("[+4] Similar memory information!")
-				score += 4
-				break
-		# mounts
-		mountscheck = """rootfs / rootfs rw 0 0
+			arpscore += (1 / len(macs)) * increment
+		else:
+			ouiexists = False
+	if arpscore > 0:
+		print("[+{0}] arp file shows an invalid MAC address".format(arpscore))
+		score += arpscore
+	return score
+
+def version(s, increment):
+	global maxscore
+	maxscore += increment
+	score = 0
+	versioncheck = "Linux version 3.2.0-4-amd64 (debian-kernel@lists.debian.org) (gcc version 4.6.3 (Debian 4.6.3-14) ) #1 SMP Debian 3.2.68-1+deb7u1"
+	(stdin, stdout, stderr) = s.execute("cat /proc/version")
+	for line in stdout:
+		if versioncheck in line:
+			print("[+{0}] Same OS found in version file!".format(increment))
+			score += increment
+			break
+	return score
+
+def uname(s, increment):
+	global maxscore
+	maxscore += increment
+	score = 0
+	unamescore = 0
+	unamecheck = "3.2.0-4-amd64 #1 SMP Debian 3.2.68-1+deb7u1 x86_64 GNU/Linux"
+	(stdin, stdout, stderr) = s.execute("uname -a")
+	for line in stdout:
+		if unamecheck in line:
+			unamescore += increment
+			break
+		if re.search("3.2.0-4-amd64", line):
+			unamescore += increment / 2
+		if "#1 SMP Debian 3.2.68-1+deb7u1" in line:
+			unamescore += increment / 2
+	if unamescore > 0:
+		print("[+{0}] uname command shows similar version!".format(unamescore))
+		score += unamescore
+	return score
+
+def meminfo(s, increment):
+	global maxscore
+	maxscore += increment
+	score = 0
+	memcheck = "MemTotal:        4054744 kB"
+	(stdin, stdout, stderr) = s.execute("cat /proc/meminfo")
+	for line in stdout:
+		if re.search(memcheck, line):
+			print("[+{0}] Similar memory information!".format(increment))
+			score += increment
+			break
+	return score
+
+def mounts(s, increment):
+	global maxscore
+	maxscore += increment
+	score = 0
+	mountscheck = """rootfs / rootfs rw 0 0
 sysfs /sys sysfs rw,nosuid,nodev,noexec,relatime 0 0
 proc /proc proc rw,relatime 0 0
 udev /dev devtmpfs rw,relatime,size=10240k,nr_inodes=997843,mode=755 0 0
@@ -180,64 +227,120 @@ fusectl /sys/fs/fuse/connections fusectl rw,relatime 0 0
 /dev/sda1 /boot ext2 rw,relatime 0 0
 /dev/mapper/home /home ext3 rw,relatime,data=ordered 0 0
 binfmt_misc /proc/sys/fs/binfmt_misc binfmt_misc rw,relatime 0 0"""
-		(stdin, stdout, stderr) = s.execute("cat /proc/mounts")
-		lines = ""
-		for line in stdout:
-			lines += line
-		if re.search(mountscheck, lines):
-			print("[+4] Exact match with mounts!")
-			score += 4
-		# cpuinfo
-		cpucheck = "Intel(R) Core(TM)2 Duo CPU     E8200  @ 2.66GHz"
-		(stdin, stdout, stderr) = s.execute("cat /proc/cpuinfo")
-		for line in stdout:
-			if cpucheck in line:
-				print("[+8] Same CPU Information found!")
-				score += 8
-				break
-		# group
-		(stdin, stdout, stderr) = s.execute("cat /etc/group")
-		for line in stdout:
-			if "phil" in line:
-				print("[+16] User \"phil\" exists in group file!")
-				score += 16
-				break
-		# passwd
-		(stdin, stdout, stderr) = s.execute("cat /etc/passwd")
-		for line in stdout:
-			if "phil" in line:
-				print("[+16] User \"phil\" exists in passwd file!")
-				score += 16
-				break
-		# shadow
-		(stdin, stdout, stderr) = s.execute("cat /etc/shadow")
-		for line in stdout:
-			if "phil" in line:
-				print("[+16] User \"phil\" exists in shadow file!")
-				score += 16
-				break
-		# hosts
-		(stdin, stdout, stderr) = s.execute("cat /etc/hosts")
-		for line in stdout:
-			if "nas3" in line:
-				print("[+8] Common host \"nas3\" exists in hosts file!")
-				score += 8
-				break
-		# hostname
-		(stdin, stdout, stderr) = s.execute("cat /etc/hostname")
-		for line in stdout:
-			if "svr04" in line:
-				print("[+8] Common hostname \"svr04\" exists!")
-				score += 8
-				break
-		# issue
-		issuecheck = "Debian GNU/Linux 7 \\n \\l"
-		(stdin, stdout, stderr) = s.execute("cat /etc/issue")
-		for line in stdout:
-			if issuecheck in line:
-				print("[+4] Common OS issue exists!")
-				score += 4
-				break
+	(stdin, stdout, stderr) = s.execute("cat /proc/mounts")
+	lines = ""
+	for line in stdout:
+		lines += line
+	if re.search(mountscheck, lines):
+		print("[+{0}] Exact match with mounts!".format(increment))
+		score += increment
+	return score
+
+def cpuinfo(s, increment):
+	global maxscore
+	maxscore += increment
+	score = 0
+	cpucheck = "Intel(R) Core(TM)2 Duo CPU     E8200  @ 2.66GHz"
+	(stdin, stdout, stderr) = s.execute("cat /proc/cpuinfo")
+	for line in stdout:
+		if cpucheck in line:
+			print("[+{0}] Same CPU Information found!".format(increment))
+			score += increment
+			break
+	return score
+
+def group(s, increment):
+	global maxscore
+	maxscore += increment
+	score = 0
+	(stdin, stdout, stderr) = s.execute("cat /etc/group")
+	for line in stdout:
+		if "phil" in line:
+			print("[+{0}] User \"phil\" exists in group file!".format(increment))
+			score += increment
+			break
+	return score
+
+def passwd(s, increment):
+	global maxscore
+	maxscore += increment
+	score = 0
+	(stdin, stdout, stderr) = s.execute("cat /etc/passwd")
+	for line in stdout:
+		if "phil" in line:
+			print("[+{0}] User \"phil\" exists in passwd file!".format(increment))
+			score += increment
+			break
+	return score
+
+def shadow(s, increment):
+	global maxscore
+	maxscore += increment
+	score = 0
+	(stdin, stdout, stderr) = s.execute("cat /etc/shadow")
+	for line in stdout:
+		if "phil" in line:
+			print("[+{0}] User \"phil\" exists in shadow file!".format(increment))
+			score += increment
+			break
+	return score
+
+def hosts(s, increment):
+	global maxscore
+	maxscore += increment
+	score = 0
+	(stdin, stdout, stderr) = s.execute("cat /etc/hosts")
+	for line in stdout:
+		if "nas3" in line:
+			print("[+{0}] Common host \"nas3\" exists in hosts file!".format(increment))
+			score += increment
+			break
+	return score
+
+def hostname(s, increment):
+	global maxscore
+	maxscore += increment
+	score = 0
+	(stdin, stdout, stderr) = s.execute("cat /etc/hostname")
+	for line in stdout:
+		if "svr04" in line:
+			print("[+{0}] Common hostname \"svr04\" exists!".format(increment))
+			score += increment
+			break
+	return score
+
+def issue(s, increment):
+	global maxscore
+	maxscore += increment
+	score = 0
+	issuecheck = "Debian GNU/Linux 7 \\n \\l"
+	(stdin, stdout, stderr) = s.execute("cat /etc/issue")
+	for line in stdout:
+		if issuecheck in line:
+			print("[+{0}] Common OS issue exists!".format(increment))
+			score += increment
+			break
+	return score
+
+
+def connect_cowrie(host, prt, usr, psw):
+	global score
+	try:
+		print("Connecting to {0} with username \"{1}\" and password \"{2}\"".format(host, usr, psw))
+		s = ShellHandler(host, prt, usr, psw)
+		print("Executing commands...")
+		score += ifconfigarp(s, 10)
+		score += version(s, 5)
+		score += uname(s, 5)
+		score += meminfo(s, 5)
+		score += mounts(s, 5)
+		score += cpuinfo(s, 10)
+		score += group(s, 20)
+		score += passwd(s, 20)
+		score += shadow(s, 20)
+		score += hosts(s, 5)
+		score += hostname(s, 10)
+		score += issue(s, 5)
 		del s
 	except paramiko.ssh_exception.NoValidConnectionsError:
 		print("\033[1;33;49mError: Could not connect to host!\033[0;37;49m")
@@ -250,20 +353,25 @@ binfmt_misc /proc/sys/fs/binfmt_misc binfmt_misc rw,relatime 0 0"""
 		sys.exit()
 
 def evaluation():
-	print("Total Cowrie Score: " + str(score) + "%")
-	if score == 100:
+	global score
+	global maxscore
+	percentage = score / maxscore * 100
+	percentage = round(percentage, 2)
+	print()
+	print("Total Score: {0} / {1} ({2}%)".format(score, maxscore, percentage))
+	if percentage == 100:
 		print("Verdict: \033[1;31;49mA completely default Cowrie honeypot\033[0;37;49m")
-	elif score > 90:
+	elif percentage > 90:
 		print("Verdict: \033[1;31;49mA Cowrie honeypot with slightly changed values\033[0;37;49m")
-	elif score > 75:
+	elif percentage > 75:
 		print("Verdict: \033[1;31;49mA Cowrie honeypot with some changed values\033[0;37;49m")
-	elif score > 50:
+	elif percentage > 50:
 		print("Verdict: \033[1;33;49mMost likely a Cowrie honeypot\033[0;37;49m")
-	elif score > 25:
+	elif percentage > 25:
 		print("Verdict: \033[1;33;49mPossibly a Cowrie honeypot\033[0;37;49m")
-	elif score > 0 :
+	elif percentage > 0 :
 		print("Verdict: \033[1;32;49mSeems to be a real system\033[0;37;49m")
-	elif score == 0:
+	elif percentage == 0:
 		print("Verdict: \033[1;34;49mIf this was a honeypot, I'd be fooled\033[0;37;49m")
 
 if __name__ == "__main__":
