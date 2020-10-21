@@ -49,7 +49,6 @@ class ShellHandler:
 		for line in self.stdout:
 			line = re.compile(r'(\x9B|\x1B\[)[0-?]*[ -/]*[@-~]').sub('', line).replace('\b', '').replace('\r', '')
 			if line.startswith(cmd) or str(line).startswith(echo_cmd):
-				print("start")
 				# up for now filled with shell junk from stdin
 				shout = []
 			elif str(line).startswith(finish):
@@ -134,13 +133,12 @@ def connect_cowrie(host, prt, usr, psw):
 		(stdin, stdout, stderr) = s.execute("ifconfig")
 		for line in stdout:
 			if "HWaddr" in line:
-				print(line)
 				for oui in ouiarray:
 					if re.search(oui, line):
-						ouiexists == True
+						ouiexists = True
 						break
 				break
-		if not ouiexists:
+		if ouiexists == False:
 			print("[+8] ifconfig shows an invalid MAC address!")
 			score += 8
 		# version
@@ -150,22 +148,25 @@ def connect_cowrie(host, prt, usr, psw):
 			if versioncheck in line:
 				print("[+4] Same OS found in version file!")
 				score += 4
+				break
+		# uname
 		unamecheck = "3.2.0-4-amd64 #1 SMP Debian 3.2.68-1+deb7u1 x86_64 GNU/Linux"
-		(stdin, stdout, stderr) = s.execute("cat /proc/version")
+		(stdin, stdout, stderr) = s.execute("uname -a")
 		for line in stdout:
 			if unamecheck in line:
 				print("[+4] uname command shows same version!")
 				score += 4
+				break
 		# meminfo
 		memcheck = "MemTotal:        4054744 kB"
 		(stdin, stdout, stderr) = s.execute("cat /proc/meminfo")
 		for line in stdout:
-			if unamecheck in line:
+			if re.search(memcheck, line):
 				print("[+4] Similar memory information!")
 				score += 4
+				break
 		# mounts
-		mountscheck = """  
-rootfs / rootfs rw 0 0
+		mountscheck = """rootfs / rootfs rw 0 0
 sysfs /sys sysfs rw,nosuid,nodev,noexec,relatime 0 0
 proc /proc proc rw,relatime 0 0
 udev /dev devtmpfs rw,relatime,size=10240k,nr_inodes=997843,mode=755 0 0
@@ -180,10 +181,12 @@ fusectl /sys/fs/fuse/connections fusectl rw,relatime 0 0
 /dev/mapper/home /home ext3 rw,relatime,data=ordered 0 0
 binfmt_misc /proc/sys/fs/binfmt_misc binfmt_misc rw,relatime 0 0"""
 		(stdin, stdout, stderr) = s.execute("cat /proc/mounts")
+		lines = ""
 		for line in stdout:
-			if mountscheck in line:
-				print("[+4] Exact match with mounts!")
-				score += 4
+			lines += line
+		if re.search(mountscheck, lines):
+			print("[+4] Exact match with mounts!")
+			score += 4
 		# cpuinfo
 		cpucheck = "Intel(R) Core(TM)2 Duo CPU     E8200  @ 2.66GHz"
 		(stdin, stdout, stderr) = s.execute("cat /proc/cpuinfo")
@@ -191,68 +194,77 @@ binfmt_misc /proc/sys/fs/binfmt_misc binfmt_misc rw,relatime 0 0"""
 			if cpucheck in line:
 				print("[+8] Same CPU Information found!")
 				score += 8
+				break
 		# group
 		(stdin, stdout, stderr) = s.execute("cat /etc/group")
 		for line in stdout:
 			if "phil" in line:
 				print("[+16] User \"phil\" exists in group file!")
 				score += 16
+				break
 		# passwd
 		(stdin, stdout, stderr) = s.execute("cat /etc/passwd")
 		for line in stdout:
 			if "phil" in line:
 				print("[+16] User \"phil\" exists in passwd file!")
 				score += 16
+				break
 		# shadow
 		(stdin, stdout, stderr) = s.execute("cat /etc/shadow")
 		for line in stdout:
 			if "phil" in line:
 				print("[+16] User \"phil\" exists in shadow file!")
 				score += 16
+				break
 		# hosts
 		(stdin, stdout, stderr) = s.execute("cat /etc/hosts")
 		for line in stdout:
 			if "nas3" in line:
 				print("[+8] Common host \"nas3\" exists in hosts file!")
 				score += 8
+				break
 		# hostname
 		(stdin, stdout, stderr) = s.execute("cat /etc/hostname")
 		for line in stdout:
 			if "svr04" in line:
 				print("[+8] Common hostname \"svr04\" exists!")
 				score += 8
+				break
 		# issue
 		issuecheck = "Debian GNU/Linux 7 \\n \\l"
-		(stdin, stdout, stderr) = s.execute("cat /etc/hostname")
+		(stdin, stdout, stderr) = s.execute("cat /etc/issue")
 		for line in stdout:
 			if issuecheck in line:
 				print("[+4] Common OS issue exists!")
 				score += 4
+				break
 		del s
 	except paramiko.ssh_exception.NoValidConnectionsError:
-		print("Error: Could not connect to host!")
+		print("\033[1;33;49mError: Could not connect to host!\033[0;37;49m")
 		sys.exit()
 	except paramiko.ssh_exception.AuthenticationException:
-		print("Error: Could not authenticate, incorrect username/password.")
+		print("\033[1;33;49mError: Could not authenticate, incorrect username/password.\033[0;37;49m")
+		sys.exit()
 	except paramiko.ssh_exception.SSHException:
-		print("Error: SSH connection error!")
+		print("\033[1;33;49mError: SSH connection error!\033[0;37;49m")
+		sys.exit()
 
 def evaluation():
 	print("Total Cowrie Score: " + str(score) + "%")
 	if score == 100:
-		print("Verdict: \033[1;31;40mA completely default Cowrie honeypot")
+		print("Verdict: \033[1;31;49mA completely default Cowrie honeypot\033[0;37;49m")
 	elif score > 90:
-		print("Verdict: \033[1;31;40mA Cowrie honeypot with slightly changed values")
+		print("Verdict: \033[1;31;49mA Cowrie honeypot with slightly changed values\033[0;37;49m")
 	elif score > 75:
-		print("Verdict: \033[1;31;40mA Cowrie honeypot with some changed values")
+		print("Verdict: \033[1;31;49mA Cowrie honeypot with some changed values\033[0;37;49m")
 	elif score > 50:
-		print("Verdict: \033[1;33;40mMost likely a Cowrie honeypot")
+		print("Verdict: \033[1;33;49mMost likely a Cowrie honeypot\033[0;37;49m")
 	elif score > 25:
-		print("Verdict: \033[1;33;40mPossibly a Cowrie honeypot")
+		print("Verdict: \033[1;33;49mPossibly a Cowrie honeypot\033[0;37;49m")
 	elif score > 0 :
-		print("Verdict: \033[1;32;40mHardly any evidence of a Cowrie honeypot")
+		print("Verdict: \033[1;32;49mSeems to be a real system\033[0;37;49m")
 	elif score == 0:
-		print("Verdict: \033[1;32;40mIf this was a honeypot, I'd be fooled")
+		print("Verdict: \033[1;34;49mIf this was a honeypot, I'd be fooled\033[0;37;49m")
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(usage='{0} <host> [options]'.format(sys.argv[0]))
