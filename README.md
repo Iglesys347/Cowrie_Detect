@@ -7,8 +7,8 @@ For everything it finds, a score is assigned. The maximum score is 100%.
 ## Score Grading
 
 ```
-    0% - - - - - - - - - - - - - - - - - - - 100%
-Not Cowrie                             Definitely Cowrie
+    0% - - - - - - - - - 50% - - - - - - - - - 100%
+Real System        Most Likely Cowrie     Default Cowrie
 ```
 
 ## Requirements
@@ -27,4 +27,4 @@ Required:
 Options:
   -u, --username: USERNAME    Connect with a specific username
   -p, --password: PASSWORD    Connect with a specific password
-  --port: PORT                Connect with a specific port
+      --port: PORT            Connect with a specific port
