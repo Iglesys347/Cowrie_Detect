@@ -404,19 +404,19 @@ def evaluation():
 	print()
 	print("Total Score: {0} / {1} ({2}%)".format(score, maxscore, str(percentage).rstrip('0').rstrip('.')))
 	if percentage == 100:
-		print("Verdict: \033[1;31;49mA completely default Cowrie honeypot\033[0;37;49m")
+		print("Verdict: \033[1;31;49mPerfect score! A completely default Cowrie honeypot!\033[0;37;49m")
 	elif percentage > 90:
-		print("Verdict: \033[1;31;49mA Cowrie honeypot with slightly changed values\033[0;37;49m")
+		print("Verdict: \033[1;31;49mA Cowrie honeypot with slightly changed values.\033[0;37;49m")
 	elif percentage > 75:
-		print("Verdict: \033[1;31;49mA Cowrie honeypot with some changed values\033[0;37;49m")
+		print("Verdict: \033[1;31;49mA modified Cowrie honeypot.\033[0;37;49m")
 	elif percentage > 50:
-		print("Verdict: \033[1;33;49mMost likely a Cowrie honeypot\033[0;37;49m")
+		print("Verdict: \033[1;31;49mAn almost disguised Cowrie honeypot.\033[0;37;49m")
 	elif percentage > 25:
-		print("Verdict: \033[1;33;49mPossibly a Cowrie honeypot\033[0;37;49m")
+		print("Verdict: \033[1;33;49mIndecisive Results. Could be Cowrie honeypot or legitimate system.\033[0;37;49m")
 	elif percentage > 0 :
-		print("Verdict: \033[1;32;49mSeems to be a real system\033[0;37;49m")
+		print("Verdict: \033[1;32;49mReal system. Most likely not a Cowrie honeypot.\033[0;37;49m")
 	elif percentage == 0:
-		print("Verdict: \033[1;34;49mIf this was a honeypot, I'd be fooled\033[0;37;49m")
+		print("Verdict: \033[1;34;49mZero score! If this was a honeypot, I'd be fooled!\033[0;37;49m")
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(usage='{0} <host> [options]'.format(sys.argv[0]))
