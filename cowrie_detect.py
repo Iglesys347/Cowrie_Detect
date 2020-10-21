@@ -11,7 +11,7 @@ USER = "root"
 PASSWORD = "password"
 score = 0
 maxscore = 0
-PORT = 2222
+PORT = 22
 
 ##########################################################
 # ShellHandler class made by misha at Stack Overflow (https://stackoverflow.com/questions/35821184/implement-an-interactive-shell-over-ssh-in-python-using-paramiko)
@@ -87,7 +87,7 @@ def getoui():
 		urllib.request.urlretrieve("https://linuxnet.ca/ieee/oui.txt", filename="oui.txt")
 		return 0
 	except Exception:
-		print("Could not retrieve the OUI file. Skipping MAC address testing.")
+		print("\033[1;33;49mError: Could not retrieve the OUI file. Skipping MAC address testing.\033[0;37;49m")
 		return 1
 
 def generate_oui():
@@ -128,44 +128,45 @@ def ifconfigarp(s, increment):
 	maxscore += increment * 2
 	score = 0
 	ouiarray = generate_oui()
-	ouiexists = False
-	(stdin, stdout, stderr) = s.execute("ifconfig")
-	for line in stdout:
-		if "HWaddr" in line:
-			for oui in ouiarray:
-				if re.search(oui, line):
-					ouiexists = True
-					break
-			break
-	if ouiexists == False:
-		print("[\033[1;33;49m+{0}\u001b[0m] ifconfig shows an invalid MAC address!".format(increment))
-		score += increment
-	else:
-		print("[\033[1;32;49mOK\u001b[0m] ifconfig shows legitimate MAC address.")
-	ouiexists = False
-	(stdin, stdout, stderr) = s.execute("cat /proc/net/arp")
-	pattern = "[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]"
-	arpscore = 0
-	macs = re.findall(pattern, line)
-	for line in stdout:
-		if re.search("No such file or directory", line):
-			print("[\033[1;33;49m+{0}\u001b[0m] arp file does not exist!".format(increment))
-			score += increment
-			break
-		for m in macs:
-			for oui in ouiarray:
-				if oui in m:
-					ouiexists = True
-					break
+	if type(ouiarray) == list:
+		ouiexists = False
+		(stdin, stdout, stderr) = s.execute("ifconfig")
+		for line in stdout:
+			if "HWaddr" in line:
+				for oui in ouiarray:
+					if re.search(oui, line):
+						ouiexists = True
+						break
+				break
 		if ouiexists == False:
-			arpscore += (1 / len(macs)) * increment
+			print("[\033[1;33;49m+{0}\u001b[0m] ifconfig shows an invalid MAC address!".format(increment))
+			score += increment
 		else:
-			ouiexists = False
-	if arpscore > 0:
-		print("[\033[1;33;49m+{0}\u001b[0m] arp file shows an invalid MAC address".format(str(arpscore).rstrip('0').rstrip('.')))
-		score += arpscore
-	elif score == 0:
-		print("[\033[1;32;49mOK\u001b[0m] arp file shows valid MAC address(s).")
+			print("[\033[1;32;49mOK\u001b[0m] ifconfig shows legitimate MAC address.")
+		ouiexists = False
+		(stdin, stdout, stderr) = s.execute("cat /proc/net/arp")
+		pattern = "[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]"
+		arpscore = 0
+		macs = re.findall(pattern, line)
+		for line in stdout:
+			if re.search("No such file or directory", line):
+				print("[\033[1;33;49m+{0}\u001b[0m] arp file does not exist!".format(increment))
+				score += increment
+				break
+			for m in macs:
+				for oui in ouiarray:
+					if oui in m:
+						ouiexists = True
+						break
+			if ouiexists == False:
+				arpscore += (1 / len(macs)) * increment
+			else:
+				ouiexists = False
+		if arpscore > 0:
+			print("[\033[1;33;49m+{0}\u001b[0m] arp file shows an invalid MAC address".format(str(arpscore).rstrip('0').rstrip('.')))
+			score += arpscore
+		elif score == 0:
+			print("[\033[1;32;49mOK\u001b[0m] arp file shows valid MAC address(s).")
 	return score
 
 def version(s, increment):
