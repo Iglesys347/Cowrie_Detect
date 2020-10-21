@@ -391,8 +391,9 @@ def connect_cowrie(host, prt, usr, psw):
 	except gaierror:
 		print("\033[1;33;49mError: Host not known! Try using a valid IP address.\033[0;37;49m")
 		sys.exit()
-	except:
-		print("\033[1;31;49mError: Unknown fatal error occurred!\033[0;37;49m")
+	except Exception as e:
+		print("\033[1;31;49mError: Fatal error occurred!\033[0;37;49m")
+		print("\033[1;31;49m" + e + "\033[0;37;49m")
 		sys.exit()
 
 def evaluation():
