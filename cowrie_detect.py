@@ -275,7 +275,7 @@ def group(s, increment):
 			score += increment
 			break
 	if score == 0:
-		print("[\033[1;32;49mOK\u001b[0m] User \"phil\" not found.")
+		print("[\033[1;32;49mOK\u001b[0m] User \"phil\" not found in group file.")
 	return score
 
 def passwd(s, increment):
@@ -289,7 +289,7 @@ def passwd(s, increment):
 			score += increment
 			break
 	if score == 0:
-		print("[\033[1;32;49mOK\u001b[0m] User \"phil\" not found.")
+		print("[\033[1;32;49mOK\u001b[0m] User \"phil\" not found in passwd file.")
 	return score
 
 def shadow(s, increment):
@@ -303,7 +303,7 @@ def shadow(s, increment):
 			score += increment
 			break
 	if score == 0:
-		print("[\033[1;32;49mOK\u001b[0m] User \"phil\" not found.")
+		print("[\033[1;32;49mOK\u001b[0m] User \"phil\" not found in shadow file.")
 	return score
 
 def hosts(s, increment):
@@ -399,9 +399,8 @@ def evaluation():
 	global maxscore
 	percentage = score / maxscore * 100
 	percentage = round(percentage, 2)
-	percentage = str(percentage).rstrip('0').rstrip('.')
 	print()
-	print("Total Score: {0} / {1} ({2}%)".format(score, maxscore, percentage))
+	print("Total Score: {0} / {1} ({2}%)".format(score, maxscore, str(percentage).rstrip('0').rstrip('.')))
 	if percentage == 100:
 		print("Verdict: \033[1;31;49mA completely default Cowrie honeypot\033[0;37;49m")
 	elif percentage > 90:
