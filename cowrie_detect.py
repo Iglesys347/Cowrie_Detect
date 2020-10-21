@@ -6,6 +6,7 @@ import re
 import os
 import urllib.request
 import string
+from socket import gethostbyname, gaierror
 USER = "root"
 PASSWORD = "password"
 score = 0
@@ -137,8 +138,10 @@ def ifconfigarp(s, increment):
 					break
 			break
 	if ouiexists == False:
-		print("[+{0}] ifconfig shows an invalid MAC address!".format(increment))
+		print("[\033[1;33;49m+{0}\u001b[0m] ifconfig shows an invalid MAC address!".format(increment))
 		score += increment
+	else:
+		print("[\033[1;32;49mOK\u001b[0m] ifconfig shows legitimate MAC address.")
 	ouiexists = False
 	(stdin, stdout, stderr) = s.execute("cat /proc/net/arp")
 	pattern = "[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]"
@@ -146,7 +149,7 @@ def ifconfigarp(s, increment):
 	macs = re.findall(pattern, line)
 	for line in stdout:
 		if re.search("No such file or directory", line):
-			print("[+{0}] arp file does not exist!".format(increment))
+			print("[\033[1;33;49m+{0}\u001b[0m] arp file does not exist!".format(increment))
 			score += increment
 			break
 		for m in macs:
@@ -159,8 +162,10 @@ def ifconfigarp(s, increment):
 		else:
 			ouiexists = False
 	if arpscore > 0:
-		print("[+{0}] arp file shows an invalid MAC address".format(arpscore))
+		print("[\033[1;33;49m+{0}\u001b[0m] arp file shows an invalid MAC address".format(str(arpscore).rstrip('0').rstrip('.')))
 		score += arpscore
+	elif score == 0:
+		print("[\033[1;32;49mOK\u001b[0m] arp file shows valid MAC address(s).")
 	return score
 
 def version(s, increment):
@@ -171,9 +176,11 @@ def version(s, increment):
 	(stdin, stdout, stderr) = s.execute("cat /proc/version")
 	for line in stdout:
 		if versioncheck in line:
-			print("[+{0}] Same OS found in version file!".format(increment))
+			print("[\033[1;33;49m+{0}\u001b[0m] Same OS found in version file!".format(increment))
 			score += increment
 			break
+	if score == 0:
+		print("[\033[1;32;49mOK\u001b[0m] OS does not match with default.")
 	return score
 
 def uname(s, increment):
@@ -192,8 +199,10 @@ def uname(s, increment):
 		if "#1 SMP Debian 3.2.68-1+deb7u1" in line:
 			unamescore += increment / 2
 	if unamescore > 0:
-		print("[+{0}] uname command shows similar version!".format(unamescore))
+		print("[\033[1;33;49m+{0}\u001b[0m] uname command shows similar version!".format(str(unamescore).rstrip('0').rstrip('.')))
 		score += unamescore
+	else:
+		print("[\033[1;32;49mOK\u001b[0m] uname command does not similar version to default.")
 	return score
 
 def meminfo(s, increment):
@@ -204,9 +213,11 @@ def meminfo(s, increment):
 	(stdin, stdout, stderr) = s.execute("cat /proc/meminfo")
 	for line in stdout:
 		if re.search(memcheck, line):
-			print("[+{0}] Similar memory information!".format(increment))
+			print("[\033[1;33;49m+{0}\u001b[0m] Similar memory information!".format(increment))
 			score += increment
 			break
+	if score == 0:
+		print("[\033[1;32;49mOK\u001b[0m] Memory information is not similar.")
 	return score
 
 def mounts(s, increment):
@@ -232,8 +243,10 @@ binfmt_misc /proc/sys/fs/binfmt_misc binfmt_misc rw,relatime 0 0"""
 	for line in stdout:
 		lines += line
 	if re.search(mountscheck, lines):
-		print("[+{0}] Exact match with mounts!".format(increment))
+		print("[\033[1;33;49m+{0}\u001b[0m] Exact match with mounts!".format(increment))
 		score += increment
+	if score == 0:
+		print("[\033[1;32;49mOK\u001b[0m] Mounts is different to default.")
 	return score
 
 def cpuinfo(s, increment):
@@ -244,9 +257,11 @@ def cpuinfo(s, increment):
 	(stdin, stdout, stderr) = s.execute("cat /proc/cpuinfo")
 	for line in stdout:
 		if cpucheck in line:
-			print("[+{0}] Same CPU Information found!".format(increment))
+			print("[\033[1;33;49m+{0}\u001b[0m] Same CPU found in cpuinfo file!".format(increment))
 			score += increment
 			break
+	if score == 0:
+		print("[\033[1;32;49mOK\u001b[0m] CPU name is different to default.")
 	return score
 
 def group(s, increment):
@@ -256,9 +271,11 @@ def group(s, increment):
 	(stdin, stdout, stderr) = s.execute("cat /etc/group")
 	for line in stdout:
 		if "phil" in line:
-			print("[+{0}] User \"phil\" exists in group file!".format(increment))
+			print("[\033[1;33;49m+{0}\u001b[0m] User \"phil\" exists in group file!".format(increment))
 			score += increment
 			break
+	if score == 0:
+		print("[\033[1;32;49mOK\u001b[0m] User \"phil\" not found.")
 	return score
 
 def passwd(s, increment):
@@ -268,9 +285,11 @@ def passwd(s, increment):
 	(stdin, stdout, stderr) = s.execute("cat /etc/passwd")
 	for line in stdout:
 		if "phil" in line:
-			print("[+{0}] User \"phil\" exists in passwd file!".format(increment))
+			print("[\033[1;33;49m+{0}\u001b[0m] User \"phil\" exists in passwd file!".format(increment))
 			score += increment
 			break
+	if score == 0:
+		print("[\033[1;32;49mOK\u001b[0m] User \"phil\" not found.")
 	return score
 
 def shadow(s, increment):
@@ -280,9 +299,11 @@ def shadow(s, increment):
 	(stdin, stdout, stderr) = s.execute("cat /etc/shadow")
 	for line in stdout:
 		if "phil" in line:
-			print("[+{0}] User \"phil\" exists in shadow file!".format(increment))
+			print("[\033[1;33;49m+{0}\u001b[0m] User \"phil\" exists in shadow file!".format(increment))
 			score += increment
 			break
+	if score == 0:
+		print("[\033[1;32;49mOK\u001b[0m] User \"phil\" not found.")
 	return score
 
 def hosts(s, increment):
@@ -292,9 +313,11 @@ def hosts(s, increment):
 	(stdin, stdout, stderr) = s.execute("cat /etc/hosts")
 	for line in stdout:
 		if "nas3" in line:
-			print("[+{0}] Common host \"nas3\" exists in hosts file!".format(increment))
+			print("[\033[1;33;49m+{0}\u001b[0m] Common host \"nas3\" exists in hosts file!".format(increment))
 			score += increment
 			break
+	if score == 0:
+		print("[\033[1;32;49mOK\u001b[0m] Common host \"nas3\" does not exist in hosts file.")
 	return score
 
 def hostname(s, increment):
@@ -304,9 +327,19 @@ def hostname(s, increment):
 	(stdin, stdout, stderr) = s.execute("cat /etc/hostname")
 	for line in stdout:
 		if "svr04" in line:
-			print("[+{0}] Common hostname \"svr04\" exists!".format(increment))
-			score += increment
+			score += increment / 2
+			print("[\033[1;33;49m+{0}\u001b[0m] Common hostname \"svr04\" exists in hostname file!".format(str(increment / 2).rstrip('0').rstrip('.')))
 			break
+	if score == 0:
+		print("[\033[1;32;49mOK\u001b[0m] Hostname is not \"svr04\" in hostname file.")
+	(stdin, stdout, stderr) = s.execute("hostname")
+	for line in stdout:
+		if "svr04" in line:
+			score += increment / 2
+			print("[\033[1;33;49m+{0}\u001b[0m] Common hostname \"svr04\" exists in terminal!".format(str(increment / 2).rstrip('0').rstrip('.')))
+			break
+	if score == increment / 2:
+		print("[\033[1;32;49mOK\u001b[0m] Hostname in terminal is different to \"svr04\".")
 	return score
 
 def issue(s, increment):
@@ -317,9 +350,11 @@ def issue(s, increment):
 	(stdin, stdout, stderr) = s.execute("cat /etc/issue")
 	for line in stdout:
 		if issuecheck in line:
-			print("[+{0}] Common OS issue exists!".format(increment))
+			print("[\033[1;33;49m+{0}\u001b[0m] Common OS issue exists in issue file!".format(increment))
 			score += increment
 			break
+	if score == 0:
+		print("[\033[1;32;49mOK\u001b[0m] OS Issue is different to default in issue file.")
 	return score
 
 
@@ -328,6 +363,7 @@ def connect_cowrie(host, prt, usr, psw):
 	try:
 		print("Connecting to {0} with username \"{1}\" and password \"{2}\"".format(host, usr, psw))
 		s = ShellHandler(host, prt, usr, psw)
+		print("Connected!")
 		print("Executing commands...")
 		score += ifconfigarp(s, 10)
 		score += version(s, 5)
@@ -351,12 +387,19 @@ def connect_cowrie(host, prt, usr, psw):
 	except paramiko.ssh_exception.SSHException:
 		print("\033[1;33;49mError: SSH connection error!\033[0;37;49m")
 		sys.exit()
+	except gaierror:
+		print("\033[1;33;49mError: Host not known! Try using a valid IP address.\033[0;37;49m")
+		sys.exit()
+	except:
+		print("\033[1;31;49mError: Unknown fatal error occurred!\033[0;37;49m")
+		sys.exit()
 
 def evaluation():
 	global score
 	global maxscore
 	percentage = score / maxscore * 100
 	percentage = round(percentage, 2)
+	percentage = str(percentage).rstrip('0').rstrip('.')
 	print()
 	print("Total Score: {0} / {1} ({2}%)".format(score, maxscore, percentage))
 	if percentage == 100:
