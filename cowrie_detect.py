@@ -7,6 +7,7 @@ import os
 import urllib.request
 import string
 from socket import gethostbyname, gaierror
+import nmap3
 USER = "root"
 PASSWORD = "password"
 score = 0
@@ -122,6 +123,25 @@ def generate_oui():
 			if pattern.match(line):
 				ouiarray.append(line.replace('-',':')) # Replace the hyphens with colons.
 	return ouiarray
+
+def nmaptest(host, increment):
+	global maxscore
+	score = 0
+	maxscore += increment
+	try:
+		scanner = nmap3.Nmap()
+		results = scanner.nmap_version_detection(host)
+		for line in results:
+			if "6.0p1 Debian 4+deb7u2" in line["service"]["version"]:
+				print("[\033[1;33;49m+{0}\u001b[0m] Nmap shows same OS version!".format(increment))
+				score += increment
+				break
+		if score == 0:
+			print("[\033[1;32;49mOK\u001b[0m] Nmap shows different OS version to default.")
+	except Exception:
+		print("\033[1;31;49mError: Nmap could not scan host! \033[1;33;49mIs nmap installed?\033[0;37;49m")
+		print("[\033[1;31;49m!!\u001b[0m] Could not scan with Nmap.")
+	return score
 
 def ifconfigarp(s, increment):
 	global maxscore
@@ -365,7 +385,8 @@ def connect_cowrie(host, prt, usr, psw):
 		print("Connecting to {0} with username \"{1}\" and password \"{2}\"".format(host, usr, psw))
 		s = ShellHandler(host, prt, usr, psw)
 		print("Connected!")
-		print("Executing commands...")
+		print("Executing commands..")
+		score += nmaptest(host, 10)
 		score += ifconfigarp(s, 10)
 		score += version(s, 5)
 		score += uname(s, 5)
@@ -427,8 +448,5 @@ if __name__ == "__main__":
 	args = parser.parse_args()
 	lenargs = len(vars(args))
 
-	# if lenargs < 3:
-	# 	parser.print_help()
-	# 	sys.exit()
 	connect_cowrie(args.host, args.port, args.username, args.password)
 	evaluation()
