@@ -8,7 +8,7 @@ For everything it finds, a score is assigned. The maximum score is 100%.
 
 ```
     0% - - - - - - - - - 50% - - - - - - - - - 100%
-Real System        Most Likely Cowrie     Default Cowrie
+Real System         Custom Cowrie         Default Cowrie
 ```
 
 ## Requirements
