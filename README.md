@@ -14,7 +14,9 @@ Real System         Custom Cowrie         Default Cowrie
 ## Requirements
 
 * Python 3
-* Paramiko python module
+* Paramiko python 3 module (pip3 install paramiko)
+* Nmap
+* Nmap python 3 module (pip3 install python3-nmap)
 
 ## Usage
 
