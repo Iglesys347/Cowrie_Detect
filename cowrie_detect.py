@@ -7,6 +7,7 @@ import os
 import urllib.request
 import string
 from socket import gethostbyname, gaierror
+import nmap3
 USER = "root"
 PASSWORD = "password"
 score = 0
@@ -87,7 +88,6 @@ def getoui():
 		urllib.request.urlretrieve("https://linuxnet.ca/ieee/oui.txt", filename="oui.txt")
 		return 0
 	except Exception:
-		print("\033[1;33;49mError: Could not retrieve the OUI file. Skipping MAC address testing.\033[0;37;49m")
 		return 1
 
 def generate_oui():
@@ -123,50 +123,84 @@ def generate_oui():
 				ouiarray.append(line.replace('-',':')) # Replace the hyphens with colons.
 	return ouiarray
 
+def nmaptest(host, increment):
+	global maxscore
+	score = 0
+	try:
+		scanner = nmap3.Nmap()
+		print("Running Nmap Scan...")
+		results = scanner.nmap_version_detection(host)
+		for line in results:
+			if "6.0p1 Debian 4+deb7u2" in line["service"]["version"]:
+				print("[\033[1;33;49m+{0}\u001b[0m] Nmap shows same OS version!".format(increment))
+				maxscore += increment
+				score += increment
+				break
+		if score == 0:
+			print("[\033[1;32;49mOK\u001b[0m] Nmap shows different OS version to default.")
+	except Exception:
+		print("[\033[1;31;49m!!\u001b[0m] Nmap could not scan host. \033[0;33;49mIs nmap installed?\u001b[0m")
+	return score
+
 def ifconfigarp(s, increment):
 	global maxscore
-	maxscore += increment * 2
 	score = 0
 	ouiarray = generate_oui()
 	if type(ouiarray) == list:
-		ouiexists = False
+		ifconfigscore = 0
 		(stdin, stdout, stderr) = s.execute("ifconfig")
-		for line in stdout:
-			if "HWaddr" in line:
-				for oui in ouiarray:
-					if re.search(oui, line):
-						ouiexists = True
-						break
-				break
-		if ouiexists == False:
-			print("[\033[1;33;49m+{0}\u001b[0m] ifconfig shows an invalid MAC address!".format(increment))
-			score += increment
-		else:
-			print("[\033[1;32;49mOK\u001b[0m] ifconfig shows legitimate MAC address.")
-		ouiexists = False
-		(stdin, stdout, stderr) = s.execute("cat /proc/net/arp")
-		pattern = "[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]"
-		arpscore = 0
-		macs = re.findall(pattern, line)
-		for line in stdout:
-			if re.search("No such file or directory", line):
-				print("[\033[1;33;49m+{0}\u001b[0m] arp file does not exist!".format(increment))
-				score += increment
-				break
+		pattern = "[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}"
+		macs = (re.findall(pattern, str(stdout)))
+		if len(macs) > 0:
+			maxscore += increment * len(macs)
+			maxifconfigscore = increment * len(macs)
 			for m in macs:
+				ouiexists = False
 				for oui in ouiarray:
-					if oui in m:
+					if oui in m.upper():
 						ouiexists = True
 						break
-			if ouiexists == False:
-				arpscore += (1 / len(macs)) * increment
-			else:
+				if ouiexists == False:
+					ifconfigscore += maxifconfigscore / len(macs)
+			if ifconfigscore > 0:
+				print("[\033[1;33;49m+{0}/{1}\u001b[0m] ifconfig shows OUI(s) not in the OUI list.".format(ifconfigscore,maxifconfigscore))
+				score += ifconfigscore
+			elif ifconfigscore == 0:
+				print("[\033[1;32;49mOK\u001b[0m] ifconfig shows valid MAC address(s).")
+		else:
+			score += increment
+			maxscore += increment
+			print("[\033[1;33;49m+{0}\u001b[0m] ifconfig does not show any MAC addresses.".format(ifconfigscore))
+		(stdin, stdout, stderr) = s.execute("cat /proc/net/arp")
+		arpscore = 0
+		if re.search("No such file or directory", str(stdout)):
+			print("[\033[1;33;49m+{0}\u001b[0m] arp file does not exist!".format(increment))
+			score += increment
+			return score
+		pattern = "[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}"
+		macs = (re.findall(pattern, str(stdout)))
+		if len(macs) > 0:
+			maxscore += increment * len(macs)
+			maxarpscore = increment * len(macs)
+			for m in macs:
 				ouiexists = False
-		if arpscore > 0:
-			print("[\033[1;33;49m+{0}\u001b[0m] arp file shows an invalid MAC address".format(str(arpscore).rstrip('0').rstrip('.')))
-			score += arpscore
-		elif score == 0:
-			print("[\033[1;32;49mOK\u001b[0m] arp file shows valid MAC address(s).")
+				for oui in ouiarray:
+					if oui in m.upper():
+						ouiexists = True
+						break
+				if ouiexists == False:
+					arpscore += maxarpscore / len(macs)
+			if arpscore > 0:
+				print("[\033[1;33;49m+{0}/{1}\u001b[0m] arp file shows OUI(s) not in the OUI list.".format(arpscore,maxarpscore))
+				score += arpscore
+			elif arpscore == 0:
+				print("[\033[1;32;49mOK\u001b[0m] arp file shows valid MAC address(s).")
+		else:
+			score += increment
+			maxscore += increment
+			print("[\033[1;33;49m+{0}\u001b[0m] arp file does not show any MAC addresses.".format(arpscore))
+	else:
+		print("[\033[1;31;49m!!\u001b[0m] Could not retrieve the OUI file. Skipping MAC address testing.")
 	return score
 
 def version(s, increment):
@@ -365,7 +399,8 @@ def connect_cowrie(host, prt, usr, psw):
 		print("Connecting to {0} with username \"{1}\" and password \"{2}\"".format(host, usr, psw))
 		s = ShellHandler(host, prt, usr, psw)
 		print("Connected!")
-		print("Executing commands...")
+		print("Executing commands..")
+		score += nmaptest(host, 10)
 		score += ifconfigarp(s, 10)
 		score += version(s, 5)
 		score += uname(s, 5)
@@ -380,20 +415,20 @@ def connect_cowrie(host, prt, usr, psw):
 		score += issue(s, 5)
 		del s
 	except paramiko.ssh_exception.NoValidConnectionsError:
-		print("\033[1;33;49mError: Could not connect to host!\033[0;37;49m")
+		print("\033[1;33;49mError: Could not connect to host!\u001b[0m")
 		sys.exit()
 	except paramiko.ssh_exception.AuthenticationException:
-		print("\033[1;33;49mError: Could not authenticate, incorrect username/password.\033[0;37;49m")
+		print("\033[1;33;49mError: Could not authenticate, incorrect username/password.\u001b[0m")
 		sys.exit()
 	except paramiko.ssh_exception.SSHException:
-		print("\033[1;33;49mError: SSH connection error!\033[0;37;49m")
+		print("\033[1;33;49mError: SSH connection error!\u001b[0m")
 		sys.exit()
 	except gaierror:
-		print("\033[1;33;49mError: Host not known! Try using a valid IP address.\033[0;37;49m")
+		print("\033[1;33;49mError: Host not known! Try using a valid IP address.\u001b[0m")
 		sys.exit()
 	except Exception as e:
-		print("\033[1;31;49mError: Fatal error occurred!\033[0;37;49m")
-		print("\033[1;31;49m" + e + "\033[0;37;49m")
+		print("\033[1;31;49mError: Fatal error occurred!\u001b[0m")
+		print("\033[1;31;49m" + e + "\u001b[0m")
 		sys.exit()
 
 def evaluation():
@@ -404,19 +439,19 @@ def evaluation():
 	print()
 	print("Total Score: {0} / {1} ({2}%)".format(score, maxscore, str(percentage).rstrip('0').rstrip('.')))
 	if percentage == 100:
-		print("Verdict: \033[1;31;49mPerfect score! A completely default Cowrie honeypot!\033[0;37;49m")
+		print("Verdict: \033[1;31;49mPerfect score! A completely default Cowrie honeypot!\u001b[0m")
 	elif percentage > 90:
-		print("Verdict: \033[1;31;49mA Cowrie honeypot with slightly changed values.\033[0;37;49m")
+		print("Verdict: \033[1;31;49mA Cowrie honeypot with slightly changed values.\u001b[0m")
 	elif percentage > 75:
-		print("Verdict: \033[1;31;49mA modified Cowrie honeypot.\033[0;37;49m")
+		print("Verdict: \033[1;31;49mA modified Cowrie honeypot.\u001b[0m")
 	elif percentage > 50:
-		print("Verdict: \033[1;31;49mAn almost disguised Cowrie honeypot.\033[0;37;49m")
+		print("Verdict: \033[1;31;49mAn almost disguised Cowrie honeypot.\u001b[0m")
 	elif percentage > 25:
-		print("Verdict: \033[1;33;49mIndecisive Results. Could be Cowrie honeypot or legitimate system.\033[0;37;49m")
+		print("Verdict: \033[1;33;49mCould be Cowrie honeypot or real system.\u001b[0m")
 	elif percentage > 0 :
-		print("Verdict: \033[1;32;49mReal system. Most likely not a Cowrie honeypot.\033[0;37;49m")
+		print("Verdict: \033[1;32;49mReal system.\u001b[0m")
 	elif percentage == 0:
-		print("Verdict: \033[1;34;49mZero score! If this was a honeypot, I'd be fooled!\033[0;37;49m")
+		print("Verdict: \033[1;34;49mZero score! If this was a honeypot, I'd be fooled!\u001b[0m")
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(usage='{0} <host> [options]'.format(sys.argv[0]))
@@ -427,8 +462,5 @@ if __name__ == "__main__":
 	args = parser.parse_args()
 	lenargs = len(vars(args))
 
-	# if lenargs < 3:
-	# 	parser.print_help()
-	# 	sys.exit()
 	connect_cowrie(args.host, args.port, args.username, args.password)
 	evaluation()
