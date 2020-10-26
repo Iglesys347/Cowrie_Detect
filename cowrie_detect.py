@@ -234,7 +234,7 @@ def uname(s, increment):
 		if "#1 SMP Debian 3.2.68-1+deb7u1" in line:
 			unamescore += increment / 2
 	if unamescore > 0:
-		print("[\033[1;33;49m+{0}\u001b[0m] uname command shows similar version!".format(str(unamescore).rstrip('0').rstrip('.')))
+		print("[\033[1;33;49m+{0}\u001b[0m] uname command shows similar version!".format(str(unamescore)))
 		score += unamescore
 	else:
 		print("[\033[1;32;49mOK\u001b[0m] uname command does not similar version to default.")
@@ -363,7 +363,7 @@ def hostname(s, increment):
 	for line in stdout:
 		if "svr04" in line:
 			score += increment / 2
-			print("[\033[1;33;49m+{0}\u001b[0m] Common hostname \"svr04\" exists in hostname file!".format(str(increment / 2).rstrip('0').rstrip('.')))
+			print("[\033[1;33;49m+{0}\u001b[0m] Common hostname \"svr04\" exists in hostname file!".format(str(increment / 2)))
 			break
 	if score == 0:
 		print("[\033[1;32;49mOK\u001b[0m] Hostname is not \"svr04\" in hostname file.")
@@ -371,7 +371,7 @@ def hostname(s, increment):
 	for line in stdout:
 		if "svr04" in line:
 			score += increment / 2
-			print("[\033[1;33;49m+{0}\u001b[0m] Common hostname \"svr04\" exists in terminal!".format(str(increment / 2).rstrip('0').rstrip('.')))
+			print("[\033[1;33;49m+{0}\u001b[0m] Common hostname \"svr04\" exists in terminal!".format(str(increment / 2)))
 			break
 	if score == increment / 2:
 		print("[\033[1;32;49mOK\u001b[0m] Hostname in terminal is different to \"svr04\".")
@@ -437,7 +437,7 @@ def evaluation():
 	percentage = score / maxscore * 100
 	percentage = round(percentage, 2)
 	print()
-	print("Total Score: {0} / {1} ({2}%)".format(score, maxscore, str(percentage).rstrip('0').rstrip('.')))
+	print("Total Score: {0} / {1} ({2}%)".format(score, maxscore, str(percentage).rstrip('0')))
 	if percentage == 100:
 		print("Verdict: \033[1;31;49mPerfect score! A completely default Cowrie honeypot!\u001b[0m")
 	elif percentage > 90:
