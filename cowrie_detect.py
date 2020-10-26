@@ -157,7 +157,7 @@ def ifconfigarp(s, increment):
 			for m in macs:
 				ouiexists = False
 				for oui in ouiarray:
-					if oui in m.upper():
+					if oui in m.upper()[:8]:
 						ouiexists = True
 						break
 				if ouiexists == False:
@@ -185,7 +185,7 @@ def ifconfigarp(s, increment):
 			for m in macs:
 				ouiexists = False
 				for oui in ouiarray:
-					if oui in m.upper():
+					if oui in m.upper()[:8]:
 						ouiexists = True
 						break
 				if ouiexists == False:
