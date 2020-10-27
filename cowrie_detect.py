@@ -237,7 +237,7 @@ def uname(s, increment):
 		print("[\033[1;33;49m+{0}\u001b[0m] uname command shows similar version!".format(str(unamescore)))
 		score += unamescore
 	else:
-		print("[\033[1;32;49mOK\u001b[0m] uname command does not similar version to default.")
+		print("[\033[1;32;49mOK\u001b[0m] uname command does not show similar version to default.")
 	return score
 
 def meminfo(s, increment):
