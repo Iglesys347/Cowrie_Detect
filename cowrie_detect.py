@@ -478,7 +478,7 @@ def evaluation():
 	percentage = score / maxscore * 100
 	percentage = round(percentage, 2)
 	print()
-	print("Total Score: {0} / {1} ({2}%)".format(score, maxscore, str(percentage).rstrip('0').rstrip('.')))
+	print("Total Score: {0} / {1} ({2}%)".format(score, maxscore, str(percentage)))
 	if percentage == 100:
 		print("Verdict: \033[1;31;49mPerfect score! A completely default Cowrie honeypot!\u001b[0m")
 	elif percentage > 90:
