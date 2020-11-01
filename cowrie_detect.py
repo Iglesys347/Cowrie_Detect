@@ -81,6 +81,8 @@ class ShellHandler:
 		return shin, shout, sherr
 ##########################################################
 
+# The following function below parses a sanitized oui.txt file and returns an array of valid OUIs from https://linuxnet.ca
+# The array will be reffered in the ifconfigarp() function
 def getoui():
 	print("Retrieving a sanitized OUI file from \"https://linuxnet.ca/\".")
 	print("This may take a minute.")
@@ -90,8 +92,12 @@ def getoui():
 	except Exception:
 		return 1
 
+# Firstly, the function below checks if the oui.txt file is in the same directory as the script.
+# If the file exists then it will prompt the user to test the file or retrieve a new one.
+# The function then proceeds to open the file in read mode and using the regex to determine the format of a MAC azddress.
+# If the oui.txt file doesnt exist then it will use the getoui() function to retrieve a new one.
 def generate_oui():
-	if os.path.isfile("oui.txt"): # Check if the oui.txt file exists in the same directory as the script.
+	if os.path.isfile("oui.txt"):
 		parsebool = ""
 		print("An oui file has been found. Use this file to test or retrieve a new one?")
 		while parsebool != 'p' and parsebool != 'r':
@@ -123,6 +129,8 @@ def generate_oui():
 				ouiarray.append(line.replace('-',':')) # Replace the hyphens with colons.
 	return ouiarray
 
+# The following function uses a python package with nmap to scan for the SSH and OS version.
+# The OS detection checks if the string is similar to the default installation and if so then the honeypot score is incremented
 def nmaptest(host, increment):
 	global maxscore
 	score = 0
@@ -142,6 +150,12 @@ def nmaptest(host, increment):
 		print("[\033[1;31;49m!!\u001b[0m] Nmap could not scan host. \033[0;33;49mIs nmap installed?\u001b[0m")
 	return score
 
+# The function below reads all MAC addresses returned by the executed command and checks whether they are valid
+# A score is generated based on the total number of MAC addesses and number of invalid addresses
+# Regex matching is used  to find the MAC addresses with the OUI array being created from the getoui() and generate_oui() functions.
+# If the two aforementioned functions return a code of 1, the ifconfigarp() function is skipped.
+# By default, the arp file does not exist on a fresh installation of Cowrie which the script also checks for and increses the score if it doesnt exists.
+# Lasltly, if the getoui() and generate_oui() does not return a single MAC address each then the score is also incremented. 
 def ifconfigarp(s, increment):
 	global maxscore
 	score = 0
@@ -203,11 +217,13 @@ def ifconfigarp(s, increment):
 		print("[\033[1;31;49m!!\u001b[0m] Could not retrieve the OUI file. Skipping MAC address testing.")
 	return score
 
+# The following function checks for the version name by reading the version file in the /proc directory
+# If a string matches in the file, the score is incremented
 def version(s, increment):
 	global maxscore
 	maxscore += increment
 	score = 0
-	versioncheck = "Linux version 3.2.0-4-amd64 (debian-kernel@lists.debian.org) (gcc version 4.6.3 (Debian 4.6.3-14) ) #1 SMP Debian 3.2.68-1+deb7u1"
+	versioncheck = "Linux version 3.2.0-4-amd64 (debian-kernel@lists.debian.org) (gcc version 4.6.3 (Debian 4.6.3-14) ) #1 SMP Debian 3.2.68-1+deb7u1" # Function searches for this script
 	(stdin, stdout, stderr) = s.execute("cat /proc/version")
 	for line in stdout:
 		if versioncheck in line:
@@ -218,6 +234,8 @@ def version(s, increment):
 		print("[\033[1;32;49mOK\u001b[0m] OS does not match with default.")
 	return score
 
+# The function below uses the "uname-a" command to search and match the two strings with the results.
+# For each string check, the score is incremented for strings matched
 def uname(s, increment):
 	global maxscore
 	maxscore += increment
@@ -234,12 +252,14 @@ def uname(s, increment):
 		if "#1 SMP Debian 3.2.68-1+deb7u1" in line:
 			unamescore += increment / 2
 	if unamescore > 0:
-		print("[\033[1;33;49m+{0}\u001b[0m] uname command shows similar version!".format(str(unamescore)))
+		print("[\033[1;33;49m+{0}\u001b[0m] uname command shows similar version!".format(str(unamescore).rstrip('0').rstrip('.')))
 		score += unamescore
 	else:
-		print("[\033[1;32;49mOK\u001b[0m] uname command does not show similar version to default.")
+		print("[\033[1;32;49mOK\u001b[0m] uname command does not similar version to default.")
 	return score
 
+# The following function uses the cat command to read the meminfo file in the directory proc/ of the honeyfs
+# The following checks the first line (memcheck) of meminfo for matches. If the strings match then the score is incremented.
 def meminfo(s, increment):
 	global maxscore
 	maxscore += increment
@@ -247,7 +267,7 @@ def meminfo(s, increment):
 	memcheck = "MemTotal:        4054744 kB"
 	(stdin, stdout, stderr) = s.execute("cat /proc/meminfo")
 	for line in stdout:
-		if re.search(memcheck, line):
+		if re.search(memcheck, line): 
 			print("[\033[1;33;49m+{0}\u001b[0m] Similar memory information!".format(increment))
 			score += increment
 			break
@@ -255,6 +275,8 @@ def meminfo(s, increment):
 		print("[\033[1;32;49mOK\u001b[0m] Memory information is not similar.")
 	return score
 
+# The following function below simply checks if the strings identified under 'mountscheck' are similar to the mounts file in the proc directory of honeyfs.
+# For each string checked, the score is incremented
 def mounts(s, increment):
 	global maxscore
 	maxscore += increment
@@ -284,6 +306,8 @@ binfmt_misc /proc/sys/fs/binfmt_misc binfmt_misc rw,relatime 0 0"""
 		print("[\033[1;32;49mOK\u001b[0m] Mounts is different to default.")
 	return score
 
+# The following function checks if the strings identified under 'cpucheck' match with the cpuinfo file in the proc directory of the honeyfs.
+# If the strings match, the score is incremented
 def cpuinfo(s, increment):
 	global maxscore
 	maxscore += increment
@@ -299,6 +323,8 @@ def cpuinfo(s, increment):
 		print("[\033[1;32;49mOK\u001b[0m] CPU name is different to default.")
 	return score
 
+# The function below checks if the values "phil" exists in the group file under the directory /etc of the honeyfs
+# For each line of string that matches, the score is incremented
 def group(s, increment):
 	global maxscore
 	maxscore += increment
@@ -313,6 +339,8 @@ def group(s, increment):
 		print("[\033[1;32;49mOK\u001b[0m] User \"phil\" not found in group file.")
 	return score
 
+# Similar to the group() function, the following below checks if the "phil" value exists in the passwd file under the directory /etc of the honeyfs
+# For each line of string that matches, the score is incremented
 def passwd(s, increment):
 	global maxscore
 	maxscore += increment
@@ -327,6 +355,8 @@ def passwd(s, increment):
 		print("[\033[1;32;49mOK\u001b[0m] User \"phil\" not found in passwd file.")
 	return score
 
+# Similar to the group() and passwd() functions, the following function below checks if the values "phil" exists in the shadow file under the directory /etc of the honeyfs
+# For each line of string that matches, the score is incremented.
 def shadow(s, increment):
 	global maxscore
 	maxscore += increment
@@ -341,6 +371,8 @@ def shadow(s, increment):
 		print("[\033[1;32;49mOK\u001b[0m] User \"phil\" not found in shadow file.")
 	return score
 
+# The following function checks if the value "nas3" exists in the hosts file of the directory /etc in the honeyfs
+# If there is a string match, then the score is incremented 
 def hosts(s, increment):
 	global maxscore
 	maxscore += increment
@@ -355,6 +387,8 @@ def hosts(s, increment):
 		print("[\033[1;32;49mOK\u001b[0m] Common host \"nas3\" does not exist in hosts file.")
 	return score
 
+# The function below checks for strings that have "svr04" in the hostname file of the directory /etc inside honeyfs
+# If there is a string match in the hostname file or the terminal, then the score gets incremented
 def hostname(s, increment):
 	global maxscore
 	maxscore += increment
@@ -363,7 +397,7 @@ def hostname(s, increment):
 	for line in stdout:
 		if "svr04" in line:
 			score += increment / 2
-			print("[\033[1;33;49m+{0}\u001b[0m] Common hostname \"svr04\" exists in hostname file!".format(str(increment / 2)))
+			print("[\033[1;33;49m+{0}\u001b[0m] Common hostname \"svr04\" exists in hostname file!".format(str(increment / 2).rstrip('0').rstrip('.')))
 			break
 	if score == 0:
 		print("[\033[1;32;49mOK\u001b[0m] Hostname is not \"svr04\" in hostname file.")
@@ -371,12 +405,14 @@ def hostname(s, increment):
 	for line in stdout:
 		if "svr04" in line:
 			score += increment / 2
-			print("[\033[1;33;49m+{0}\u001b[0m] Common hostname \"svr04\" exists in terminal!".format(str(increment / 2)))
+			print("[\033[1;33;49m+{0}\u001b[0m] Common hostname \"svr04\" exists in terminal!".format(str(increment / 2).rstrip('0').rstrip('.')))
 			break
 	if score == increment / 2:
 		print("[\033[1;32;49mOK\u001b[0m] Hostname in terminal is different to \"svr04\".")
 	return score
 
+# The following function below checks if the string identified under "issuecheck" matches with the issue file in the directoryt /etc of the honeyfs
+# If there is a string match, then it increments the score. Otherwise it will print a message that the OS issue is different to a dafault issue file of a honeypot.
 def issue(s, increment):
 	global maxscore
 	maxscore += increment
@@ -392,7 +428,11 @@ def issue(s, increment):
 		print("[\033[1;32;49mOK\u001b[0m] OS Issue is different to default in issue file.")
 	return score
 
-
+# The following function below will attempt to connect to the host with a new SSH client object which then calls to all functions describes previously to execute.
+# The exception handlers check for the following errors:
+	# failed authentication
+	# hostname couldnot be resolved
+	# generic error caused by paramiko
 def connect_cowrie(host, prt, usr, psw):
 	global score
 	try:
@@ -431,6 +471,7 @@ def connect_cowrie(host, prt, usr, psw):
 		print("\033[1;31;49m" + e + "\u001b[0m")
 		sys.exit()
 
+# The function below evaluates an overall percentage of the scores outputed by the connect_cowrie() function 
 def evaluation():
 	global score
 	global maxscore
