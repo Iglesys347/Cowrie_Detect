@@ -14,7 +14,7 @@ Real System         Custom Cowrie         Default Cowrie
 ## Requirements
 
 * Python 3.9
-* See [requirements.txt](requirements.txt)
+* See [requirements.txt](requirements.txt) (`pip install -r requirements.txt`)
 
 ## Usage
 
